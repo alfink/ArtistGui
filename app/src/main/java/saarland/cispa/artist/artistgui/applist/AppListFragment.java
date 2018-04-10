@@ -71,7 +71,7 @@ public class AppListFragment extends Fragment implements AppListContract.View,
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
         setHasOptionsMenu(true);
-        View rootView = inflater.inflate(R.layout.fragment_app_list, container, false);
+        View rootView = inflater.inflate(R.layout.fragment_recyclerview, container, false);
         mProgressBar = rootView.findViewById(R.id.progress_bar);
         mAppListView = rootView.findViewById(R.id.recycler_view);
 

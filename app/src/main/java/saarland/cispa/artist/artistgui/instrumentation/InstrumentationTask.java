@@ -52,7 +52,6 @@ class InstrumentationTask implements Runnable {
     public void run() {
         Log.i(TAG, "Run() compiling and starting " + mRunConfig.app_package_name);
         Log.i(TAG, "> apkPath:     " + mRunConfig.app_apk_file_path);
-        Log.i(TAG, "> codeLibName: " + mRunConfig.codeLibName);
         Log.i(TAG, "> Keystore:    " + mRunConfig.keystore);
 
         try {

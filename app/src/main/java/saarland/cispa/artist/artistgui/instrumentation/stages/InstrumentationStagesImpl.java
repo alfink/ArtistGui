@@ -20,14 +20,9 @@
 package saarland.cispa.artist.artistgui.instrumentation.stages;
 
 import android.content.Context;
-import android.os.Environment;
 
 import java.io.File;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 
 import saarland.cispa.apksigner.ApkSigner;
 import saarland.cispa.apksigner.ApkZipSir;
@@ -36,7 +31,6 @@ import saarland.cispa.artist.artistgui.instrumentation.exceptions.Instrumentatio
 import saarland.cispa.artist.artistgui.instrumentation.progress.ProgressListener;
 import saarland.cispa.artist.artistgui.settings.config.ArtistAppConfig;
 import saarland.cispa.artist.artistgui.utils.AndroidUtils;
-import saarland.cispa.artist.artistgui.utils.ArtistUtils;
 import saarland.cispa.artist.artistgui.utils.ProcessExecutor;
 import saarland.cispa.dexterous.Dexterous;
 import saarland.cispa.dexterous.MergeConfig;
@@ -51,6 +45,8 @@ public class InstrumentationStagesImpl implements InstrumentationStages {
     private Context mContext;
     private ArtistRunConfig mRunConfig;
     private List<ProgressListener> mProgressListeners;
+
+    private boolean mUsingCodeLib;
 
     public InstrumentationStagesImpl(Context mContext, ArtistRunConfig mRunConfig,
                                      List<ProgressListener> mProgressListeners) {
@@ -84,10 +80,6 @@ public class InstrumentationStagesImpl implements InstrumentationStages {
 
         reportProgressDetails("Deleting: " + mRunConfig.app_apk_merged_signed_file_path);
         AndroidUtils.deleteExistingFile(mRunConfig.app_apk_merged_signed_file_path);
-        if (mRunConfig.isAssetCodeLib()) {
-            reportProgressDetails("Deleting: " + mRunConfig.codeLib);
-            AndroidUtils.deleteExistingFile(mRunConfig.codeLib);
-        }
     }
 
     private void setupKeystore() {
@@ -169,46 +161,40 @@ public class InstrumentationStagesImpl implements InstrumentationStages {
 
         String pathToApkSigned;
         // deactivate injection upon user wish or if no code lib is provided
-        if (mRunConfig.codeLib != null) {
-            reportProgressDetails("Injecting CodeLib");
-            final File appApk = new File(mRunConfig.app_apk_file_path);
-            final File codeLibApk = mRunConfig.codeLib;
+        reportProgressDetails("Injecting CodeLib");
+        File modulesDir = mContext.getDir("modules", Context.MODE_PRIVATE);
 
-            setupCodeLib();
+        String toMergeApk = mRunConfig.app_apk_file_path;
+        String mergedApkPath = mRunConfig.app_apk_merged_file_path;
 
-            final MergeConfig mergeConfig = new MergeConfig(mRunConfig.codeLib.getName(),
-                    mRunConfig.app_apk_merged_file_path, mRunConfig.app_apk_file_path);
+        for (File file : modulesDir.listFiles()) {
+            File codeLibApk = new File(file, "codelib.apk");
 
-            Dexterous dexterous = new Dexterous(mergeConfig);
-            dexterous.init(appApk, codeLibApk);
-            dexterous.mergeCodeLib();
-            final String pathToApk = dexterous.buildApk();
-            reportProgressDetails("Resigning APK");
-            Log.d(TAG, String.format("MergeCodeLib DONE (%s)", pathToApk));
+            if (codeLibApk.exists()) {
+                final File appApk = new File(mRunConfig.app_apk_file_path);
 
-            pathToApkSigned = resignApk(pathToApk);
-            Log.d(TAG, String.format("MergeCodeLib Signing DONE (%s)", pathToApkSigned));
+                final MergeConfig mergeConfig = new MergeConfig(codeLibApk.getName(),
+                        mergedApkPath, toMergeApk);
 
-            if (pathToApkSigned.isEmpty()) {
-                throw new InstrumentationException("Codelib Merge Failed");
-            }
-        } else {
-            reportProgressDetails("Not Injecting CodeLib");
-            Log.i(TAG, "Skip CodeLib Injection");
-            Log.d(TAG, "MergeCodeLib SKIPPED");
-        }
-    }
+                Dexterous dexterous = new Dexterous(mergeConfig);
+                dexterous.init(appApk, codeLibApk);
+                dexterous.mergeCodeLib();
+                final String pathToApk = dexterous.buildApk();
+                reportProgressDetails("Resigning APK");
+                Log.d(TAG, String.format("MergeCodeLib DONE (%s)", pathToApk));
 
-    private void setupCodeLib() {
-        if (mRunConfig.codeLibName.startsWith(ArtistUtils.CODELIB_ASSET)) {
-            Log.d(TAG, "setupCodeLib() " + mRunConfig.codeLibName);
-            final String assetName = mRunConfig.codeLibName.replaceFirst(ArtistUtils.CODELIB_ASSET, "");
-            AndroidUtils.copyAsset(mContext, "codelib" + File.separator + assetName,
-                    mRunConfig.codeLib.getAbsolutePath());
-            if (!mRunConfig.codeLib.exists()) {
-                Log.e(TAG, " setupCodeLib: " + mRunConfig.codeLib + " FAILED");
-            } else {
-                Log.d(TAG, " setupCodeLib: " + mRunConfig.codeLib + " READY");
+                pathToApkSigned = resignApk(pathToApk);
+                Log.d(TAG, String.format("MergeCodeLib Signing DONE (%s)", pathToApkSigned));
+
+
+                if (pathToApkSigned.isEmpty()) {
+                    throw new InstrumentationException("Codelib Merge Failed");
+                }
+
+                toMergeApk = mergedApkPath;
+                mergedApkPath = mergedApkPath + "AAAA";
+
+                mUsingCodeLib = true;
             }
         }
     }
@@ -282,6 +268,12 @@ public class InstrumentationStagesImpl implements InstrumentationStages {
     }
 
     private String setupDex2oatCommand(final String pathDex2oat) {
+        File modulesDir = mContext.getDir("modules", Context.MODE_PRIVATE);
+        String modules = "";
+        for (File file : modulesDir.listFiles()) {
+            modules += " --artist-module=" + file.getAbsolutePath() + "/artist-module.so";
+        }
+
         String cmd_dex2oat_compile =
                 "export LD_LIBRARY_PATH=" + mContext.getApplicationInfo().nativeLibraryDir + ":"
                         + AndroidUtils.getFilesDirLocation(mContext, mRunConfig.artist_exec_path_libs_dir) + ";"
@@ -290,9 +282,10 @@ public class InstrumentationStagesImpl implements InstrumentationStages {
                         + " --compiler-backend=Optimizing"
                         + " --compiler-filter=everything"
                         + " --generate-debug-info"
-                        + " --compile-pic";
+                        + " --compile-pic"
+                        + modules;
 
-        cmd_dex2oat_compile += " --dex-file=" + (mRunConfig.codeLib != null ?
+        cmd_dex2oat_compile += " --dex-file=" + (mUsingCodeLib ?
                 mRunConfig.app_apk_merged_signed_file_path : mRunConfig.app_apk_file_path);
         cmd_dex2oat_compile += " --checksum-rewriting";
         cmd_dex2oat_compile += " --dex-location=" + mRunConfig.app_apk_file_path;

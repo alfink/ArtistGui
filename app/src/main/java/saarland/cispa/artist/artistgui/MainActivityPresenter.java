@@ -39,15 +39,18 @@ import java.lang.annotation.RetentionPolicy;
 
 import saarland.cispa.artist.artistgui.applist.AppListFragment;
 import saarland.cispa.artist.artistgui.applist.AppListPresenter;
+import saarland.cispa.artist.artistgui.modules.ModuleFragment;
+import saarland.cispa.artist.artistgui.modules.ModulePresenter;
 import saarland.cispa.artist.artistgui.settings.manager.SettingsManager;
 
 public class MainActivityPresenter implements MainActivityContract.Presenter {
 
     static final int INFO_FRAGMENT = 0;
     static final int INSTRUMENTATION_FRAGMENT = 1;
+    static final int MODULES_FRAGMENT = 2;
 
     @Retention(RetentionPolicy.SOURCE)
-    @IntDef({INFO_FRAGMENT, INSTRUMENTATION_FRAGMENT})
+    @IntDef({INFO_FRAGMENT, INSTRUMENTATION_FRAGMENT, MODULES_FRAGMENT})
     @interface selectableFragment {
     }
 
@@ -71,6 +74,7 @@ public class MainActivityPresenter implements MainActivityContract.Presenter {
     private int mSelectedFragmentId;
     private InfoFragment mInfoFragment;
     private AppListFragment mAppListFragment;
+    private ModuleFragment mModuleFragment;
 
     MainActivityPresenter(MainActivityContract.View view,
                           SettingsManager settingsManager, Context context) {
@@ -168,6 +172,13 @@ public class MainActivityPresenter implements MainActivityContract.Presenter {
                     new AppListPresenter(mAppListFragment, mSettingsManager);
                 }
                 selectedFragment = mAppListFragment;
+                break;
+            case MODULES_FRAGMENT:
+                if (mModuleFragment == null) {
+                    mModuleFragment = new ModuleFragment();
+                    new ModulePresenter(mModuleFragment);
+                }
+                selectedFragment = mModuleFragment;
                 break;
         }
         mSelectedFragmentId = id;
