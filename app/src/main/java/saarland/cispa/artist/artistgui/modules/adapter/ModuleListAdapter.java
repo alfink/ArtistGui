@@ -58,8 +58,9 @@ public class ModuleListAdapter extends RecyclerView.Adapter<ModuleListAdapter.Vi
         mDataset = new ArrayList<>();
         File modulesDir = context.getDir("modules", Context.MODE_PRIVATE);
         for (File file : modulesDir.listFiles()) {
+            File f = new File(file, "codelib.apk");
             mDataset.add(new Module(file.getName(), "", "", 0,
-                    "", ""));
+                    "", f.exists()));
         }
     }
 

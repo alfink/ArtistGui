@@ -26,23 +26,23 @@ public class Module {
     public static final String AUTHOR_ELEMENT = "author";
     public static final String VERSION_ELEMENT = "version";
     public static final String SUPPORTED_ARCHS_ELEMENT = "supported_archs";
-    public static final String CODELIB_ELEMENT = "codelib";
+    public static final String HAS_CODELIB_ELEMENT = "has_codelib";
 
     public String name;
     public String description;
     public String author;
     public int version;
     public String arch;
-    public String codeLibPath;
+    public boolean hasCodeLib;
 
     public Module(String name, String description, String author, int version, String arch,
-           String codeLibPath) {
+           boolean hasCodeLib) {
         this.name = name;
         this.description = description;
         this.author = author;
         this.version = version;
         this.arch = arch;
-        this.codeLibPath = codeLibPath;
+        this.hasCodeLib = hasCodeLib;
     }
 
     @Override
@@ -53,7 +53,7 @@ public class Module {
                 ", author='" + author + '\'' +
                 ", version=" + version +
                 ", arch='" + arch + '\'' +
-                ", codeLibPath='" + codeLibPath + '\'' +
+                ", hasCodeLib=" + hasCodeLib +
                 '}';
     }
 }

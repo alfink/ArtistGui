@@ -34,6 +34,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.zip.ZipEntry;
@@ -75,6 +76,7 @@ public class ModuleZipParser {
         String description = root.getString(Module.DESCRIPTION_ELEMENT);
         String author = root.getString(Module.AUTHOR_ELEMENT);
         int version = root.getInt(Module.VERSION_ELEMENT);
+        boolean hasCodeLib = root.getBoolean(Module.HAS_CODELIB_ELEMENT);
 
         // TODO: Currently we do only support 32bit
         JSONArray moduleSupportedArchs = root.getJSONArray(Module.SUPPORTED_ARCHS_ELEMENT);
@@ -90,14 +92,8 @@ public class ModuleZipParser {
             }
         }
 
-        boolean hasCodeLib = root.has(Module.CODELIB_ELEMENT);
-        String codeLibPath = null;
-        if (hasCodeLib) {
-            codeLibPath = root.getString(Module.CODELIB_ELEMENT);
-        }
-
         return new Module(name.replace(" ", "_").toLowerCase(),
-                description, author, version, selectedArch, codeLibPath);
+                description, author, version, selectedArch, hasCodeLib);
     }
 
 
@@ -130,6 +126,12 @@ public class ModuleZipParser {
 
         String moduleSoPath = "lib/" + module.arch + "/artist-module.so";
 
+        List<String> filesToExtract = new ArrayList<>(module.hasCodeLib ? 2 : 1);
+        filesToExtract.add(moduleSoPath);
+        if (module.hasCodeLib) {
+            filesToExtract.add("codelib.apk");
+        }
+
         if (thisModuleDir.mkdir()) {
             try (InputStream inputStream = mContentResolver.openInputStream(mUri)) {
                 ZipInputStream zipInputStream = new ZipInputStream(inputStream);
@@ -138,8 +140,9 @@ public class ModuleZipParser {
                 while ((entry = zipInputStream.getNextEntry()) != null) {
                     String entryName = entry.getName();
 
-                    int equalsType = moduleSoPath.equals(entryName) ? MATCH_ARTIST_SO :
-                            entryName.equals(module.codeLibPath) ? MATCH_CODELIB : NO_MATCH;
+                    int type = filesToExtract.indexOf(entryName);
+                    int equalsType = type == 0 ? MATCH_ARTIST_SO :
+                            type == 1 ? MATCH_CODELIB : NO_MATCH;
 
                     if (equalsType != NO_MATCH) {
                         switch (equalsType) {
